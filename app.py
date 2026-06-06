@@ -1,182 +1,172 @@
 import streamlit as st
-import time
+from general_chat import ChatBot
+from history_aware_generation import ask_question
 
-# Page Config
+# ==================================================
+# PAGE CONFIG
+# ==================================================
+
 st.set_page_config(
     page_title="AI Assistant",
     page_icon="🤖",
     layout="wide"
 )
 
-# Session State
+# ==================================================
+# SESSION STATE
+# ==================================================
+
 if "messages" not in st.session_state:
-        st.session_state.messages = []
+    st.session_state.messages = []
 
-# if "current_mode" not in st.session_state:
-#     st.session_state.current_mode = "LLM"
-# st.title("🤖 AI Assistant")
+if "chatbot" not in st.session_state:
+    st.session_state.chatbot = ChatBot()
 
-# Router
+# ==================================================
+# ROUTER
+# ==================================================
+
 def route_query(query):
 
     query = query.lower()
 
-    # Real-time information
-    web_keywords = [
-        "latest",
-        "today",
-        "current",
-        "news",
-        "recent",
-        "stock",
-        "weather",
-        "trend"
-    ]
-
-    # Document-related queries
     rag_keywords = [
         "document",
         "pdf",
-        "uploaded",
         "policy",
         "handbook",
         "report",
-        "file",
-        "proposal"
+        "proposal",
+        "leave",
+        "onboarding",
+        "employee",
+        "company",
+        "department",
+        "probation",
+        "holiday"
     ]
 
-    if any(word in query for word in web_keywords):
-        return "🌐 Web Search"
-
     if any(word in query for word in rag_keywords):
-        return "📄 RAG"
+        return "RAG"
 
-    return "🧠 LLM"
+    return "CHAT"
 
+# ==================================================
+# SIDEBAR
+# ==================================================
 
-
-# SideBar
 with st.sidebar:
+
     st.title("🤖 AI Assistant")
+
     st.markdown("---")
+
     st.subheader("Features")
 
     st.success("🧠 General Chat")
-    st.info("🌐 Web Search")
     st.warning("📄 RAG Search")
 
     st.markdown("---")
 
-    uploaded_file = st.file_uploader(
-        "Upload Documents",
-        type=["pdf", "docx", "txt"]
+    st.info(
+        """
+        Documents have already been
+        ingested into ChromaDB.
+        """
     )
-
-    if uploaded_file:
-        st.success(f"Uploaded: {uploaded_file.name}")
 
     st.markdown("---")
 
     if st.button("🗑️ Clear Chat"):
+
         st.session_state.messages = []
+
+        if "chatbot" in st.session_state:
+            st.session_state.chatbot.reset()
+
         st.rerun()
 
-# Main Header
-st.title("Intelligent Multi-Mode AI Agent")
+# ==================================================
+# HEADER
+# ==================================================
+
+st.title("🚀 Intelligent AI Assistant")
 
 st.caption(
-    "LLM • Web Search • RAG • Memory"
+    "Automatic routing between General Chat and RAG"
 )
 
-# Chat History
+# ==================================================
+# DISPLAY OLD CHAT
+# ==================================================
+
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# User input
-prompt = st.chat_input("Ask something...")
+# ==================================================
+# USER INPUT
+# ==================================================
 
-# Message Processing
+prompt = st.chat_input(
+    "Ask me anything..."
+)
+
 if prompt:
+
+    # Save user message
+
     st.session_state.messages.append(
-        {"role": "user", "content": prompt}
+        {
+            "role": "user",
+            "content": prompt
+        }
     )
 
-    # Display User Message
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Route Query
+    # Route query
+
     selected_tool = route_query(prompt)
 
-    # Assistant Response
+    # Assistant response
+
     with st.chat_message("assistant"):
 
-        st.caption(f"Selected Tool: {selected_tool}")
+        st.caption(
+            f"Selected Tool: {selected_tool}"
+        )
 
         with st.spinner("Thinking..."):
 
-            time.sleep(1)
+            try:
 
-            # Placeholder responses
-            if selected_tool == "🌐 Web Search":
+                if selected_tool == "RAG":
 
-                response = f"""
-I determined that this question requires **real-time information**.
+                    response = ask_question(prompt)
 
-Your query:
+                else:
 
-**{prompt}**
+                    response = (
+                        st.session_state.chatbot
+                        .chat(prompt)
+                    )
 
-(Here you will later call DuckDuckGo Search.)
-"""
+            except Exception as e:
 
-            elif selected_tool == "📄 RAG":
+                response = (
+                    f"❌ Error: {str(e)}"
+                )
 
-                response = f"""
-I determined that this question is related to **uploaded documents**.
+        st.markdown(response)
 
-Your query:
+    # Save assistant response
 
-**{prompt}**
-
-(Here you will later perform vector search using FAISS.)
-"""
-
-            else:
-
-                response = f"""
-I determined that this is a **general knowledge question**.
-
-Your query:
-
-**{prompt}**
-
-(Here you will later call your LLM.)
-"""
-
-            st.markdown(response)
-
-        # --------------------------------------------------
-        # SOURCE PANEL
-        # --------------------------------------------------
-
-        with st.expander("📚 Sources"):
-
-            if selected_tool == "🌐 Web Search":
-                st.write("Web Search Results")
-                st.write("DuckDuckGo Search (to be integrated)")
-
-            elif selected_tool == "📄 RAG":
-                st.write("Document Sources")
-                st.write("Uploaded documents will appear here")
-
-            else:
-                st.write("LLM Internal Knowledge")
-
-    # Sotring assistant message
-    response = f"You asked: {prompt}"
     st.session_state.messages.append(
-        {"role": "assistant", "content": response}
+        {
+            "role": "assistant",
+            "content": response
+        }
     )
