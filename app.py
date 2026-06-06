@@ -8,19 +8,52 @@ st.set_page_config(
     layout="wide"
 )
 
-# initialization first
+# Session State
 if "messages" not in st.session_state:
         st.session_state.messages = []
 
-if "current_mode" not in st.session_state:
-    st.session_state.current_mode = "LLM"
+# if "current_mode" not in st.session_state:
+#     st.session_state.current_mode = "LLM"
+# st.title("🤖 AI Assistant")
 
-st.title("🤖 AI Assistant")
+# Router
+def route_query(query):
 
-# Now it's safe to access
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+    query = query.lower()
+
+    # Real-time information
+    web_keywords = [
+        "latest",
+        "today",
+        "current",
+        "news",
+        "recent",
+        "stock",
+        "weather",
+        "trend"
+    ]
+
+    # Document-related queries
+    rag_keywords = [
+        "document",
+        "pdf",
+        "uploaded",
+        "policy",
+        "handbook",
+        "report",
+        "file",
+        "proposal"
+    ]
+
+    if any(word in query for word in web_keywords):
+        return "🌐 Web Search"
+
+    if any(word in query for word in rag_keywords):
+        return "📄 RAG"
+
+    return "🧠 LLM"
+
+
 
 # SideBar
 with st.sidebar:
@@ -55,18 +88,13 @@ st.caption(
     "LLM • Web Search • RAG • Memory"
 )
 
-# Mode Display
-st.info(
-    f"Current Mode: {st.session_state.current_mode}"
-)
-
 # Chat History
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Chat input
+# User input
 prompt = st.chat_input("Ask something...")
 
 # Message Processing
@@ -79,58 +107,73 @@ if prompt:
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Mode Routing
-    lower_prompt = prompt.lower()
-
-    if any(word in lower_prompt for word in [
-        "latest",
-        "today",
-        "news",
-        "current",
-        "recent"
-    ]):
-        mode = "Web Search"
-
-    elif any(word in lower_prompt for word in [
-        "document",
-        "pdf",
-        "policy",
-        "file"
-    ]):
-        mode = "RAG"
-
-    else:
-        mode = "LLM"
-
-    st.session_state.current_mode = mode
+    # Route Query
+    selected_tool = route_query(prompt)
 
     # Assistant Response
     with st.chat_message("assistant"):
+
+        st.caption(f"Selected Tool: {selected_tool}")
+
         with st.spinner("Thinking..."):
+
             time.sleep(1)
 
-            response = (
-                f"This is a sample response generated "
-                f"using {mode} mode.\n\n"
-                f"Your question was:\n\n"
-                f"**{prompt}**"
-            )
+            # Placeholder responses
+            if selected_tool == "🌐 Web Search":
+
+                response = f"""
+I determined that this question requires **real-time information**.
+
+Your query:
+
+**{prompt}**
+
+(Here you will later call DuckDuckGo Search.)
+"""
+
+            elif selected_tool == "📄 RAG":
+
+                response = f"""
+I determined that this question is related to **uploaded documents**.
+
+Your query:
+
+**{prompt}**
+
+(Here you will later perform vector search using FAISS.)
+"""
+
+            else:
+
+                response = f"""
+I determined that this is a **general knowledge question**.
+
+Your query:
+
+**{prompt}**
+
+(Here you will later call your LLM.)
+"""
 
             st.markdown(response)
 
-            # SOURCE DISPLAY
-            with st.expander("Sources"):
+        # --------------------------------------------------
+        # SOURCE PANEL
+        # --------------------------------------------------
 
-                if mode == "Web Search":
-                    st.write("🌐 Example Web Source")
-                    st.write("https://example.com")
+        with st.expander("📚 Sources"):
 
-                elif mode == "RAG":
-                    st.write("📄 Uploaded Document")
-                    st.write("employee_handbook.pdf")
+            if selected_tool == "🌐 Web Search":
+                st.write("Web Search Results")
+                st.write("DuckDuckGo Search (to be integrated)")
 
-                else:
-                    st.write("🧠 LLM Internal Knowledge")
+            elif selected_tool == "📄 RAG":
+                st.write("Document Sources")
+                st.write("Uploaded documents will appear here")
+
+            else:
+                st.write("LLM Internal Knowledge")
 
     # Sotring assistant message
     response = f"You asked: {prompt}"
